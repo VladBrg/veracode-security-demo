@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Data.SqlClient;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Web.Mvc;
@@ -13,13 +14,15 @@ namespace VeraDemoNet.Controllers
 {
     public class BlabController : AuthControllerBase
     {
+        private static List<string> whiteListCommands = new List<string> { "ignore", "listen" };
+
         protected readonly log4net.ILog logger;
 
-        private string sqlBlabsByMe = 
-            "SELECT b.content, b.timestamp, COUNT(c.blabid), b.blabid "  +
+        private string sqlBlabsByMe =
+            "SELECT b.content, b.timestamp, COUNT(c.blabid), b.blabid " +
             "FROM blabs b LEFT JOIN comments c ON b.blabid = c.blabid " +
-            "WHERE b.blabber = @username "+
-            "GROUP BY b.content, b.timestamp, c.blabid, b.blabid "+
+            "WHERE b.blabber = @username " +
+            "GROUP BY b.content, b.timestamp, c.blabid, b.blabid " +
             "ORDER BY b.timestamp DESC;";
 
         private string sqlBlabsForMe =
@@ -34,38 +37,38 @@ namespace VeraDemoNet.Controllers
         private string sqlSearchBlabs =
             "SELECT b.blabber, b.content, b.timestamp " +
             "FROM blabs b " +
-            "WHERE b.content LIKE '%{0}%' " + 
+            "WHERE b.content LIKE '%{0}%' " +
             "ORDER BY b.timestamp DESC";
-        
-        private string sqlBlabDetails = 
+
+        private string sqlBlabDetails =
             "SELECT blabs.content, users.blab_name " +
-            "FROM blabs INNER JOIN users ON blabs.blabber = users.username " + 
+            "FROM blabs INNER JOIN users ON blabs.blabber = users.username " +
             "WHERE blabs.blabid = @blabId";
 
-        private string sqlBlabComments = 
+        private string sqlBlabComments =
             "SELECT users.username, users.blab_name, comments.content, comments.timestamp " +
             "FROM comments INNER JOIN users ON comments.blabber = users.username " +
             "WHERE comments.blabid = @blabId ORDER BY comments.timestamp DESC";
 
-        private string sqlAddBlab = 
+        private string sqlAddBlab =
             "INSERT INTO blabs (blabber, content, timestamp) values (@username, @blabcontents, @timestamp);";
 
-        private string sqlAddComment = 
+        private string sqlAddComment =
             "INSERT INTO comments (blabid, blabber, content, timestamp) values (@blabId, @blabber, @content, @timestamp)";
 
         private string sqlBlabbers =
-            "SELECT users.username, users.blab_name, users.created_at, "+
-                "MAX(case when listeners.listener=@username then 1 else 0 end) as subscribed, "+
-                "SUM(case when listeners.listener <> @username then 1 else 0 end) as totallisteners, "+
-                "SUM(case when listeners.status='Active' then 1 else 0 end) as totallistening "+
-            "FROM users LEFT JOIN listeners ON users.username = listeners.blabber "+
-            "WHERE users.username NOT IN ('admin', @username) "+
+            "SELECT users.username, users.blab_name, users.created_at, " +
+                "MAX(case when listeners.listener=@username then 1 else 0 end) as subscribed, " +
+                "SUM(case when listeners.listener <> @username then 1 else 0 end) as totallisteners, " +
+                "SUM(case when listeners.status='Active' then 1 else 0 end) as totallistening " +
+            "FROM users LEFT JOIN listeners ON users.username = listeners.blabber " +
+            "WHERE users.username NOT IN ('admin', @username) " +
             "GROUP BY users.username,users.blab_name, users.created_at " +
             "ORDER BY {0}";
 
         public BlabController()
         {
-            logger = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);    
+            logger = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         }
 
         [ActionName("SearchBlabs"), HttpGet]
@@ -93,7 +96,7 @@ namespace VeraDemoNet.Controllers
                 dbContext.Database.Connection.Open();
                 var searchBlabs = dbContext.Database.Connection.CreateCommand();
                 searchBlabs.CommandText = string.Format(sqlSearchBlabs, searchText);
-                
+
                 var searchBlabsResults = searchBlabs.ExecuteReader();
                 while (searchBlabsResults.Read())
                 {
@@ -131,7 +134,7 @@ namespace VeraDemoNet.Controllers
             // Find the Blabs that this user listens to
             var feedBlabs = new List<Blab>();
             using (var dbContext = new BlabberDB())
-            { 
+            {
                 dbContext.Database.Connection.Open();
                 var listeningBlabs = dbContext.Database.Connection.CreateCommand();
                 listeningBlabs.CommandText = string.Format(sqlBlabsForMe, 0, 10);
@@ -166,7 +169,7 @@ namespace VeraDemoNet.Controllers
                 dbContext.Database.Connection.Open();
                 var listeningBlabs = dbContext.Database.Connection.CreateCommand();
                 listeningBlabs.CommandText = sqlBlabsByMe;
-                listeningBlabs.Parameters.Add(new SqlParameter{ParameterName = "@username", Value = username});
+                listeningBlabs.Parameters.Add(new SqlParameter { ParameterName = "@username", Value = username });
 
                 var blabsByMeResults = listeningBlabs.ExecuteReader();
                 while (blabsByMeResults.Read())
@@ -184,11 +187,11 @@ namespace VeraDemoNet.Controllers
             }
 
             return View(new FeedViewModel
-                {
-                    BlabsByMe = myBlabs,
-                    BlabsByOthers = feedBlabs,
-                    CurrentUser = username
-                }
+            {
+                BlabsByMe = myBlabs,
+                BlabsByOthers = feedBlabs,
+                CurrentUser = username
+            }
             );
         }
 
@@ -201,14 +204,14 @@ namespace VeraDemoNet.Controllers
             }
 
             var username = GetLoggedInUsername();
-            
+
             using (var dbContext = new BlabberDB())
             {
                 dbContext.Database.Connection.Open();
-                dbContext.Database.ExecuteSqlCommand(sqlAddBlab, 
-                    new SqlParameter{ParameterName = "@username", Value = username},
-                    new SqlParameter{ParameterName = "@blabcontents", Value = blab},
-                    new SqlParameter{ParameterName = "@timestamp", Value = DateTime.Now});
+                dbContext.Database.ExecuteSqlCommand(sqlAddBlab,
+                    new SqlParameter { ParameterName = "@username", Value = username },
+                    new SqlParameter { ParameterName = "@blabcontents", Value = blab },
+                    new SqlParameter { ParameterName = "@timestamp", Value = DateTime.Now });
             }
 
             return RedirectToAction("Feed");
@@ -234,12 +237,12 @@ namespace VeraDemoNet.Controllers
                 return RedirectToLogin(HttpContext.Request.RawUrl);
             }
 
-            if (string.IsNullOrWhiteSpace(sort)) 
+            if (string.IsNullOrWhiteSpace(sort))
             {
                 sort = "blab_name ASC";
             }
             var username = Session["username"] as string;
-            
+
             var viewModel = PopulateBlabbersViewModel(sort, username);
 
             return View(viewModel);
@@ -298,16 +301,24 @@ namespace VeraDemoNet.Controllers
 
             try
             {
-                using (var dbContext = new BlabberDB())
+                //fix forbidden command
+                if (whiteListCommands.Any(x => x.ToLowerInvariant() == command.ToLowerInvariant()))
                 {
-                    dbContext.Database.Connection.Open();
+                    using (var dbContext = new BlabberDB())
+                    {
+                        dbContext.Database.Connection.Open();
 
-                    var commandType = Type.GetType("VeraDemoNet.Commands." + UpperCaseFirst(command) + "Command");
+                        var commandType = Type.GetType("VeraDemoNet.Commands." + UpperCaseFirst(command) + "Command");
 
-                    /* START BAD CODE */
-                    var cmdObj = (IBlabberCommand) Activator.CreateInstance(commandType, dbContext.Database.Connection, username);
-                    cmdObj.Execute(blabberUsername);
-                    /* END BAD CODE */
+                        /* START BAD CODE */
+                        var cmdObj = (IBlabberCommand)Activator.CreateInstance(commandType, dbContext.Database.Connection, username);
+                        cmdObj.Execute(blabberUsername);
+                        /* END BAD CODE */
+                    }
+                }
+                else
+                {
+                    throw new Exception("Invalid command");
                 }
             }
             catch (Exception ex)
@@ -336,11 +347,11 @@ namespace VeraDemoNet.Controllers
             using (var dbContext = new BlabberDB())
             {
                 dbContext.Database.Connection.Open();
-                var result= dbContext.Database.ExecuteSqlCommand(sqlAddComment, 
-                    new SqlParameter{ParameterName = "@blabid", Value = blabId},
-                    new SqlParameter{ParameterName = "@blabber", Value = username},
-                    new SqlParameter{ParameterName = "@content", Value = comment},
-                    new SqlParameter{ParameterName = "@timestamp", Value = DateTime.Now});
+                var result = dbContext.Database.ExecuteSqlCommand(sqlAddComment,
+                    new SqlParameter { ParameterName = "@blabid", Value = blabId },
+                    new SqlParameter { ParameterName = "@blabber", Value = username },
+                    new SqlParameter { ParameterName = "@content", Value = comment },
+                    new SqlParameter { ParameterName = "@timestamp", Value = DateTime.Now });
 
                 if (result == 0)
                 {
@@ -360,20 +371,20 @@ namespace VeraDemoNet.Controllers
             var username = GetLoggedInUsername();
 
             var template = "<li><div><div class='commenterImage'>" +
-                           "<img src='" + Url.Content("~/Images/") +"{0}.png'>" + 
-                           "</div>" + 
-                           "<div class='commentText'>" + 
+                           "<img src='" + Url.Content("~/Images/") + "{0}.png'>" +
+                           "</div>" +
+                           "<div class='commentText'>" +
                            "<p>{1}</p>" +
-                           "<span class='date sub-text'>by {2} on {3}</span><br>" + 
-                           "<span class='date sub-text'><a href=\"Blab/Blab?blabid={4}\">{5} Comments</a></span>" + 
-                           "</div>" + 
+                           "<span class='date sub-text'>by {2} on {3}</span><br>" +
+                           "<span class='date sub-text'><a href=\"Blab/Blab?blabid={4}\">{5} Comments</a></span>" +
+                           "</div>" +
                            "</div></li>";
 
             // Get the Database Connection
             var returnTemplate = new StringBuilder();
 
             using (var dbContext = new BlabberDB())
-            { 
+            {
                 dbContext.Database.Connection.Open();
                 var listeningBlabs = dbContext.Database.Connection.CreateCommand();
                 listeningBlabs.CommandText = string.Format(sqlBlabsForMe, start, numResults);
@@ -382,7 +393,7 @@ namespace VeraDemoNet.Controllers
                 var blabsForMeResults = listeningBlabs.ExecuteReader();
                 while (blabsForMeResults.Read())
                 {
-                    var blab = new Blab {PostDate = blabsForMeResults.GetDateTime(3)};
+                    var blab = new Blab { PostDate = blabsForMeResults.GetDateTime(3) };
 
                     returnTemplate.Append(string.Format(template, blabsForMeResults.GetString(0), // username
                                                         blabsForMeResults.GetString(2), // blab content
@@ -399,7 +410,7 @@ namespace VeraDemoNet.Controllers
 
         private BlabViewModel CreateBlabViewModel(int blabId)
         {
-            var blabViewModel = new BlabViewModel {BlabId = blabId};
+            var blabViewModel = new BlabViewModel { BlabId = blabId };
 
             using (var dbContext = new BlabberDB())
             {
