@@ -33,14 +33,6 @@ namespace VeraDemoNet.Controllers
         [HttpGet, ActionName("Login")]
         public ActionResult GetLogin(string ReturnUrl = "")
         {
-            if (!String.IsNullOrEmpty(ReturnUrl))
-            {
-                if (!Url.IsLocalUrl(ReturnUrl))
-                {
-                    ReturnUrl = String.Empty;
-                }
-            }
-
             logger.Info("Login page visited: " + ReturnUrl);
 
             if (IsUserLoggedIn())
@@ -88,6 +80,10 @@ namespace VeraDemoNet.Controllers
             }
 
             /* START BAD CODE */
+            if (!Url.IsLocalUrl(ReturnUrl))
+            {
+                ReturnUrl = String.Empty;
+            }
             return Redirect(ReturnUrl);
             /* END BAD CODE */
         }
@@ -141,6 +137,10 @@ namespace VeraDemoNet.Controllers
                     }
 
                     /* START BAD CODE */
+                    if (!Url.IsLocalUrl(ReturnUrl))
+                    {
+                        ReturnUrl = String.Empty;
+                    }
                     return Redirect(ReturnUrl);
                     /* END BAD CODE */
                 }
