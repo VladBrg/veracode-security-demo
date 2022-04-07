@@ -91,11 +91,11 @@ namespace VeraDemoNet.Controllers
                 return RedirectToLogin(HttpContext.Request.RawUrl);
             }
 
-            //validate searchText
-            if (!searchText.All(char.IsLetterOrDigit))
-            {
-                return RedirectToAction("SearchBlabs");
-            }
+            ////validate searchText
+            //if (!searchText.All(char.IsLetterOrDigit))
+            //{
+            //    return RedirectToAction("SearchBlabs");
+            //}
 
             var searchBlabslist = new List<BlabSearchResultViewModel>();
             using (var dbContext = new BlabberDB())

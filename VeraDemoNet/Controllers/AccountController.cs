@@ -9,15 +9,18 @@ using System.Net;
 using System.Reflection;
 using System.Runtime.Serialization;
 using System.Runtime.Serialization.Formatters.Binary;
+using System.Security.Cryptography;
+using System.Text;
 using System.Web;
 using System.Web.Hosting;
 using System.Web.Mvc;
+using Microsoft.AspNetCore.Cryptography.KeyDerivation;
 using Newtonsoft.Json;
 using VeraDemoNet.DataAccess;
 using VeraDemoNet.Models;
 
-namespace VeraDemoNet.Controllers  
-{  
+namespace VeraDemoNet.Controllers
+{
     // https://www.c-sharpcorner.com/article/custom-authentication-with-asp-net-mvc/
     public class AccountController : AuthControllerBase
     {
@@ -27,7 +30,7 @@ namespace VeraDemoNet.Controllers
 
         public AccountController()
         {
-            logger = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);    
+            logger = log4net.LogManager.GetLogger(MethodBase.GetCurrentMethod().DeclaringType);
         }
 
         [HttpGet, ActionName("Login")]
@@ -172,7 +175,7 @@ namespace VeraDemoNet.Controllers
             Response.Cookies.Add(cookie);
 
             LogoutUser();
-            
+
             return Redirect(Url.Action("Login", "Account"));
         }
 
@@ -222,9 +225,9 @@ namespace VeraDemoNet.Controllers
 
                 var update = connection.CreateCommand();
                 update.CommandText = "UPDATE users SET real_name=@realname, blab_name=@blabname WHERE username=@username;";
-                update.Parameters.Add(new SqlParameter {ParameterName = "@realname", Value = realName});
-                update.Parameters.Add(new SqlParameter {ParameterName = "@blabname", Value = blabName});
-                update.Parameters.Add(new SqlParameter {ParameterName = "@username", Value = oldUsername});
+                update.Parameters.Add(new SqlParameter { ParameterName = "@realname", Value = realName });
+                update.Parameters.Add(new SqlParameter { ParameterName = "@blabname", Value = blabName });
+                update.Parameters.Add(new SqlParameter { ParameterName = "@username", Value = oldUsername });
 
                 var result = update.ExecuteNonQuery();
 
@@ -242,7 +245,7 @@ namespace VeraDemoNet.Controllers
             {
                 if (UsernameExists(userName))
                 {
-                    Response.StatusCode = (int) HttpStatusCode.Conflict;
+                    Response.StatusCode = (int)HttpStatusCode.Conflict;
                     return new JsonResult
                     {
                         Data = JsonConvert.DeserializeObject(
@@ -252,7 +255,7 @@ namespace VeraDemoNet.Controllers
 
                 if (!UpdateUsername(oldUsername, userName))
                 {
-                    Response.StatusCode = (int) HttpStatusCode.InternalServerError;
+                    Response.StatusCode = (int)HttpStatusCode.InternalServerError;
                     return new JsonResult
                     {
                         Data = JsonConvert.DeserializeObject(
@@ -264,16 +267,16 @@ namespace VeraDemoNet.Controllers
             }
 
             // Update user profile image
-            if (file != null &&  file.ContentLength > 0) 
+            if (file != null && file.ContentLength > 0)
             {
                 // Get old image name, if any, to delete
                 var oldImage = imageDir + userName + ".png";
-                
+
                 if (System.IO.File.Exists(oldImage))
                 {
                     System.IO.File.Delete(oldImage);
                 }
-		
+
                 var extension = Path.GetExtension(file.FileName).ToLower();
                 var newFilename = Path.Combine(imageDir, userName);
                 newFilename += extension;
@@ -289,7 +292,7 @@ namespace VeraDemoNet.Controllers
             /* START BAD CODE */
 
             // Don't forget to escape braces so they're not included in the string.Format
-            var respTemplate = "{{\"values\": {{\"username\": \"{0}\", \"realName\": \"{1}\", \"blabName\": \"{2}\"}}, \"message\": \"<script>alert('"+ msg + "');</script>\"}}";
+            var respTemplate = "{{\"values\": {{\"username\": \"{0}\", \"realName\": \"{1}\", \"blabName\": \"{2}\"}}, \"message\": \"<script>alert('" + msg + "');</script>\"}}";
 
             // JSON doesn't like single backslashes so escape them?
             return Content(string.Format(respTemplate, userName.ToLower().Replace("\\", "\\\\"), realName.Replace("\\", "\\\\"), blabName.Replace("\\", "\\\\")), "application/json");
@@ -302,7 +305,7 @@ namespace VeraDemoNet.Controllers
         public ActionResult GetPasswordHint(string userName)
         {
             logger.Info("Entering password-hint with username: " + userName);
-		
+
             if (string.IsNullOrEmpty(userName))
             {
                 return Content("No username provided, please type in your username first");
@@ -360,8 +363,8 @@ namespace VeraDemoNet.Controllers
                     {
                         logger.Info("Preparing the Prepared Statement: " + sql);
                         update.CommandText = sql;
-                        update.Parameters.Add(new SqlParameter {ParameterName = "@oldusername", Value = oldUsername});
-                        update.Parameters.Add(new SqlParameter {ParameterName = "@newusername", Value = newUsername});
+                        update.Parameters.Add(new SqlParameter { ParameterName = "@oldusername", Value = oldUsername });
+                        update.Parameters.Add(new SqlParameter { ParameterName = "@newusername", Value = newUsername });
                         update.ExecuteNonQuery();
                     }
                 }
@@ -419,22 +422,22 @@ namespace VeraDemoNet.Controllers
                 }
             }
         }
-        
+
         [HttpGet, ActionName("DownloadProfileImage")]
-	    public ActionResult DownloadProfileImage(string image)
-	    {
-		    logger.Info("Entering downloadImage");
+        public ActionResult DownloadProfileImage(string image)
+        {
+            logger.Info("Entering downloadImage");
 
-	        if (IsUserLoggedIn() == false)
-	        {
-	            return RedirectToLogin(HttpContext.Request.RawUrl);
-	        }
+            if (IsUserLoggedIn() == false)
+            {
+                return RedirectToLogin(HttpContext.Request.RawUrl);
+            }
 
-            var imagePath = Path.Combine(HostingEnvironment.MapPath("~/Images/"), image); 
+            var imagePath = Path.Combine(HostingEnvironment.MapPath("~/Images/"), image);
 
-		    logger.Info("Fetching profile image: " + imagePath);
+            logger.Info("Fetching profile image: " + imagePath);
 
-	        return File(imagePath, System.Net.Mime.MediaTypeNames.Application.Octet);
+            return File(imagePath, System.Net.Mime.MediaTypeNames.Application.Octet);
         }
 
         [HttpGet, ActionName("register")]
@@ -444,9 +447,9 @@ namespace VeraDemoNet.Controllers
 
             return View(new RegisterViewModel());
         }
-        
+
         [HttpPost, ActionName("register")]
-        public ActionResult PostRegister (string username)
+        public ActionResult PostRegister(string username)
         {
             logger.Info("PostRegister processRegister");
             var registerViewModel = new RegisterViewModel();
@@ -466,7 +469,7 @@ namespace VeraDemoNet.Controllers
                 connection.Open();
                 var checkUsername = connection.CreateCommand();
                 checkUsername.CommandText = sql;
-                checkUsername.Parameters.Add(new SqlParameter {ParameterName = "@username", Value = username.ToLower()});
+                checkUsername.Parameters.Add(new SqlParameter { ParameterName = "@username", Value = username.ToLower() });
 
                 var numUsernames = checkUsername.ExecuteScalar() as int?;
 
@@ -485,20 +488,20 @@ namespace VeraDemoNet.Controllers
         private string GetProfileImageNameFromUsername(string viewModelUserName)
         {
             var imagePath = HostingEnvironment.MapPath("~/Images/");
-            var image =  Directory.EnumerateFiles(imagePath).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f) == viewModelUserName);
+            var image = Directory.EnumerateFiles(imagePath).FirstOrDefault(f => Path.GetFileNameWithoutExtension(f) == viewModelUserName);
 
             var filename = image == null ? "default_profile.png" : Path.GetFileName(image);
-            
+
             return Url.Content("~/Images/" + filename);
         }
 
         private List<string> RetrieveMyEvents(DbConnection connect, string username)
         {
             // START BAD CODE
-            var sqlMyEvents = "select event from users_history where blabber='" + 
+            var sqlMyEvents = "select event from users_history where blabber='" +
                               username + "' ORDER BY eventid DESC; ";
             logger.Info(sqlMyEvents);
-            
+
             var myEvents = new List<string>();
             using (var eventsCommand = connect.CreateCommand())
             {
@@ -527,7 +530,7 @@ namespace VeraDemoNet.Controllers
             using (var profile = connect.CreateCommand())
             {
                 profile.CommandText = sqlMyHecklers;
-                profile.Parameters.Add(new SqlParameter {ParameterName = "@blabber", Value = username});
+                profile.Parameters.Add(new SqlParameter { ParameterName = "@blabber", Value = username });
 
                 using (var myHecklersResults = profile.ExecuteReader())
                 {
@@ -572,9 +575,20 @@ namespace VeraDemoNet.Controllers
             }
 
             // Use the user class to get the hashed password.
-            user.Password = Md5Hash(user.Password);
+            //user.Password = Md5Hash(user.Password);
+
+            //demo purpose only for stronger password hash
+            byte[] salt = Encoding.ASCII.GetBytes("salt");
+            string hashed = Convert.ToBase64String(KeyDerivation.Pbkdf2(
+                password: user.Password,
+                salt: salt,
+                prf: KeyDerivationPrf.HMACSHA256,
+                iterationCount: 100000,
+                numBytesRequested: 256 / 8));
+            user.Password = hashed;
+
             user.CreatedAt = DateTime.Now;
-            
+
             using (var dbContext = new BlabberDB())
             {
                 dbContext.Users.Add(user);
@@ -594,7 +608,7 @@ namespace VeraDemoNet.Controllers
 
             //EmailUser(userName);
 
-            return RedirectToAction("Login", "Account", new LoginView {UserName = user.UserName});
+            return RedirectToAction("Login", "Account", new LoginView { UserName = user.UserName });
         }
     }
 }
