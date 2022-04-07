@@ -95,6 +95,13 @@ namespace VeraDemoNet.Controllers
             {
                 if (ModelState.IsValid)
                 {
+                    //validate username
+                    if (!loginViewModel.UserName.All(char.IsLetterOrDigit))
+                    {
+                        ModelState.AddModelError("CustomError", "Something Wrong : UserName or Password invalid ^_^ ");
+                        return View(loginViewModel);
+                    }
+
                     var userDetails = LoginUser(loginViewModel.UserName, loginViewModel.Password);
 
                     using (EventLog eventLog = new EventLog("Application"))
