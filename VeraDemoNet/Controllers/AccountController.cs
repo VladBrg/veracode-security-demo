@@ -451,6 +451,12 @@ namespace VeraDemoNet.Controllers
             logger.Info("PostRegister processRegister");
             var registerViewModel = new RegisterViewModel();
 
+            if (!username.All(char.IsLetterOrDigit))
+            {
+                registerViewModel.Error = "Username '" + username + "' is not valid!";
+                return View(registerViewModel);
+            }
+
             Session["username"] = username;
 
             var sql = "SELECT count(*) FROM users WHERE username = @username";
