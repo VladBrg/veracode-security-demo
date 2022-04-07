@@ -5,6 +5,7 @@ using System.Data.SqlClient;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Web.Mvc;
 using VeraDemoNet.Commands;
 using VeraDemoNet.DataAccess;
@@ -205,13 +206,23 @@ namespace VeraDemoNet.Controllers
 
             var username = GetLoggedInUsername();
 
-            using (var dbContext = new BlabberDB())
+            try
             {
-                dbContext.Database.Connection.Open();
-                dbContext.Database.ExecuteSqlCommand(sqlAddBlab,
-                    new SqlParameter { ParameterName = "@username", Value = username },
-                    new SqlParameter { ParameterName = "@blabcontents", Value = blab },
-                    new SqlParameter { ParameterName = "@timestamp", Value = DateTime.Now });
+                // check if blab contains any tags
+                if (Regex.IsMatch(blab, "<(.|\n)*?>"))
+                    throw new Exception("Blab cannot contain tags");
+
+                using (var dbContext = new BlabberDB())
+                {
+                    dbContext.Database.Connection.Open();
+                    dbContext.Database.ExecuteSqlCommand(sqlAddBlab,
+                        new SqlParameter { ParameterName = "@username", Value = username },
+                        new SqlParameter { ParameterName = "@blabcontents", Value = blab },
+                        new SqlParameter { ParameterName = "@timestamp", Value = DateTime.Now });
+                }
+            }catch (Exception ex)
+            {
+                logger.Warn(ex);
             }
 
             return RedirectToAction("Feed");
